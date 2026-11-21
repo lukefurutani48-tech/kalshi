@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kalshi Props Board</title>
+<style>
+:root{--bg:#f5f7fa;--card:#fff;--tx:#111827;--mu:#6b7280;--bd:#e5e7eb;--ac:#0f9d6e;--ng:#d6455d;--ac2:#e6f6ef}
+@media(prefers-color-scheme:dark){:root{--bg:#0e1319;--card:#171e27;--tx:#e8edf3;--mu:#8b97a6;--bd:#27303b;--ac:#2dd4a0;--ng:#ff6b81;--ac2:#12291f;color-scheme:dark}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:env(safe-area-inset-top) 0 90px}
+.wrap{max-width:780px;margin:0 auto;padding:16px}h1{font-size:22px;margin:4px 0 2px}h2{font-size:16px;margin:18px 0 8px}.mu{color:var(--mu);font-size:13px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin:10px 0}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.stat b{display:block;font-size:24px}
+.pos{color:var(--ac)}.neg{color:var(--ng)}.hide{display:none}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--bd);padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;padding:14px 4px;background:none;border:0;color:var(--mu);font:600 13px system-ui;cursor:pointer}nav button.on{color:var(--ac)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.chip{padding:6px 11px;border-radius:99px;border:1px solid var(--bd);background:var(--card);color:var(--tx);font-size:13px;cursor:pointer}.chip.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.row{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.ev{font-weight:700;font-size:18px;text-align:right;white-space:nowrap}
+.ins{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}label{font-size:11px;color:var(--mu);display:block}
+input,select{width:100%;padding:8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font-size:15px}
+button.b{padding:8px 12px;border-radius:8px;border:1px solid var(--ac);background:none;color:var(--ac);font-weight:600;cursor:pointer}button.b.on{background:var(--ac);color:#fff}
+.tag{font-size:11px;padding:2px 7px;border-radius:99px;background:var(--ac2);color:var(--ac)}
+</style></head><body><div class="wrap"><div id="home"></div><div id="board" class="hide"></div><div id="parlay" class="hide"></div></div><nav id="nav"></nav>
+<script>
+var D={markets:[],updated:null,source:""},S={tab:"home",sp:"All",props:false,q:"",lim:60};
+var U={};try{U=JSON.parse(localStorage.getItem("kb")||"{}")}catch(e){}
+function save(){try{localStorage.setItem("kb",JSON.stringify(U))}catch(e){}}
+function u(t){return U[t]||(U[t]={win:"",odds:"",slip:false})}
+function fee(p){return Math.ceil(0.07*p*(1-p)*100-1e-9)/100}
+function wp(x){var s=u(x.t);if(s.win!==""&&!isNaN(s.win))return s.win/100;var o=parseFloat(s.odds);if(!isNaN(o)&&o!==0)return o<0?(-o)/(-o+100):100/(o+100);return null}
+function ev(x){var q=wp(x);if(q==null)return null;var p=x.pr/100;return(q-p-fee(p))/p*100}
+function bu(q){var b=0;for(var c=1;c<100;c++){if(q-c/100-fee(c/100)>=0)b=c}return b}
+function f(n){return(n>0?"+":"")+n.toFixed(1)+"%"}
+function ago(){if(!D.updated)return"never";var m=Math.round((Date.now()-new Date(D.updated))/60000);return m<2?"just now":m<90?m+" min ago":m<2880?Math.round(m/60)+" hours ago":Math.round(m/1440)+" days ago"}
+function set(t,k,v){u(t)[k]=v;save();render(1)}
+function show(t){S.tab=t;render()}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function when(c){if(!c)return"";var d=new Date(c);return isNaN(d)?"":d.toLocaleString([], {month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}
+function render(keep){
+ var M=D.markets,sl=M.filter(function(x){return u(x.t).slip});
+ var evs=M.map(function(x){return{x:x,e:ev(x)}}).filter(function(r){return r.e!=null}),pos=evs.filter(function(r){return r.e>0}).sort(function(a,b){return b.e-a.e});
+ ["home","board","parlay"].forEach(function(k){document.getElementById(k).className=S.tab===k?"":"hide"});
+ document.getElementById("nav").innerHTML=[["home","Home"],["board","Board"],["parlay","Parlay ("+sl.length+")"]].map(function(t){return'<button class="'+(S.tab===t[0]?"on":"")+'" onclick="show(\''+t[0]+'\')">'+t[1]+'</button>'}).join("");
+ var a=document.activeElement,aid=a&&a.id,sps=["All"].concat(Array.from(new Set(M.map(function(x){return x.sp}))));
+ document.getElementById("home").innerHTML='<h1>Kalshi Props Board</h1><div class="mu">Prices updated '+ago()+'</div>'+
+ '<div class="grid card"><div class="stat"><b>'+M.length+'</b><span class="mu">Markets</span></div><div class="stat"><b>'+M.filter(function(x){return x.prop}).length+'</b><span class="mu">Props</span></div><div class="stat"><b class="pos">'+pos.length+'</b><span class="mu">+EV picks</span></div></div>'+
+ '<div class="card"><b>How to use it</b><p class="mu">Kalshi’s price alone doesn’t show an edge. On the Board, type your win % or a sportsbook’s American odds (like -150) and EV% updates after Kalshi’s fee. Your entries stay saved in this browser, even after prices refresh.</p><button class="b on" onclick="show(\'board\')">Open the board</button></div>'+
+ '<h2>Top edges</h2>'+(pos.length?pos.slice(0,6).map(function(r){return'<div class="card row"><div><b>'+esc(r.x.n)+'</b><div class="mu">'+esc(r.x.m)+' · buy up to '+bu(wp(r.x))+'¢</div></div><div class="ev pos">'+f(r.e)+'</div></div>'}).join(""):'<div class="card mu">No +EV picks yet. Add a win % or book odds on the Board.</div>')+
+ '<div class="card mu">Source: '+esc(D.source||"")+'. Analysis only, not financial advice.</div>';
+ var list=M.filter(function(x){return(S.sp==="All"||x.sp===S.sp)&&(!S.props||x.prop)&&(!S.q||(x.n+" "+x.m).toLowerCase().indexOf(S.q.toLowerCase())>-1)});
+ var shown=list.slice(0,S.lim);
+ document.getElementById("board").innerHTML='<h1>Board</h1><input id="sq" placeholder="Search player or team" value="'+esc(S.q)+'" oninput="S.q=this.value;S.lim=60;render(1)">'+
+ '<div class="chips">'+sps.map(function(c){return'<span class="chip '+(S.sp===c?"on":"")+'" onclick="S.sp=\''+c+'\';S.lim=60;render()">'+c+'</span>'}).join("")+'<span class="chip '+(S.props?"on":"")+'" onclick="S.props=!S.props;S.lim=60;render()">Props only</span></div>'+
+ '<div class="mu">'+list.length+' markets</div>'+(shown.map(function(x){var s=u(x.t),e=ev(x),q=wp(x);return'<div class="card"><div class="row"><div><b>'+esc(x.n)+'</b> <span class="tag">'+x.sp+'</span><div class="mu">'+esc(x.m)+(x.c?' · '+when(x.c):'')+'</div></div><div class="ev '+(e==null?"mu":e>0?"pos":"neg")+'">'+(e==null?"—":f(e))+'</div></div>'+
+ '<div class="ins"><div><label>Kalshi price</label><div style="padding:8px 0;font-size:15px"><b>'+x.pr+'¢</b></div></div><div><label>Your win %</label><input id="w_'+x.t+'" type="number" value="'+s.win+'" placeholder="58" oninput="set(\''+x.t+'\',\'win\',this.value)"></div><div><label>Book odds</label><input id="o_'+x.t+'" value="'+esc(s.odds)+'" placeholder="-150" oninput="set(\''+x.t+'\',\'odds\',this.value)"></div></div>'+
+ '<div class="row" style="margin-top:10px"><span class="mu">'+(q!=null?'Win '+(q*100).toFixed(1)+'% · buy up to '+bu(q)+'¢':'Add win % or odds for EV')+'</span><button class="b '+(s.slip?"on":"")+'" onclick="set(\''+x.t+'\',\'slip\','+!s.slip+')">'+(s.slip?"In parlay":"+ Parlay")+'</button></div></div>'}).join("")||'<div class="card mu">Nothing matches. Try another sport or clear the search.</div>')+
+ (list.length>S.lim?'<button class="b on" onclick="S.lim+=60;render()">Show more</button>':'')+'<p class="mu">Book odds convert to a win % without removing the sportsbook’s margin, so they run a bit high. A typed win % overrides odds.</p>';
+ var pr=1,wq=1,all=sl.length>0;sl.forEach(function(x){pr*=x.pr/100;var q=wp(x);if(q==null)all=false;else wq*=q});var pe=all?(wq-pr-fee(pr))/pr*100:null;
+ document.getElementById("parlay").innerHTML='<h1>Parlay</h1>'+(sl.length?sl.map(function(x){return'<div class="card row"><div><b>'+esc(x.n)+'</b><div class="mu">'+esc(x.m)+' · '+x.pr+'¢</div></div><button class="b" onclick="set(\''+x.t+'\',\'slip\',false)">Remove</button></div>'}).join("")+
+ '<div class="card"><div class="row"><span>Legs</span><b>'+sl.length+'</b></div><div class="row"><span>Combined price</span><b>'+(pr*100).toFixed(1)+'¢</b></div><div class="row"><span>Combined win chance</span><b>'+(all?(wq*100).toFixed(1)+'%':'needs win % on every leg')+'</b></div><div class="row"><span>Parlay EV</span><b class="'+(pe==null?"":pe>0?"pos":"neg")+'">'+(pe==null?"—":f(pe))+'</b></div></div><p class="mu">Treats legs as independent. Legs from the same game are usually linked, so treat this as rough. Kalshi doesn’t price this combination; you’d place each leg separately.</p>':'<div class="card mu">Tap “+ Parlay” on any pick on the Board.</div>');
+ if(keep&&aid){var el=document.getElementById(aid);if(el){el.focus();try{el.setSelectionRange(el.value.length,el.value.length)}catch(e){}}}
+}
+fetch("data/markets.json?"+Date.now()).then(function(r){return r.json()}).then(function(d){D=d;render()}).catch(function(){document.getElementById("home").innerHTML='<div class="card neg">Couldn’t load data/markets.json.</div>'});
+render();
+</script></body></html>
